@@ -183,7 +183,9 @@ class FrequencySummarizer:
 
 
 def GetNewsArticles():
-    ''''''
+    '''iterate over inputs URLs
+        call parser functions for specific sources
+    '''
     pass
 
 def getWashPostText(url,token):
