@@ -182,7 +182,9 @@ class FrequencySummarizer:
         return [sentences[j] for j in sents_idx]
 
 
-# ## Repeat the K-Means cluster on the tech/nontech corpus 
+def GetNewsArticles():
+    ''''''
+    pass
 
 def getWashPostText(url,token):
     '''this function takes in the URL of an article in the WashPo
