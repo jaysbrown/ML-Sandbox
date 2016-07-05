@@ -181,13 +181,6 @@ class FrequencySummarizer:
         sents_idx = nlargest(n,ranking, key=ranking.get)
         return [sentences[j] for j in sents_idx]
 
-
-def GetNewsArticles():
-    '''iterate over inputs URLs
-        call parser functions for specific sources
-    '''
-    pass
-
 def getWashPostText(url,token):
     '''this function takes in the URL of an article in the WashPo
     returns the text of the article minus all of the junk
@@ -261,9 +254,9 @@ def scrapeSource(url, magicFrag='2016', scraperFunction=getNYTText, token='None'
     # each iterable 'a' acts sorta like a dictionary
     # tag[key] returns the value of the 'key' attribute for the tag, and throws an exception if it's not there.
     
-    print('\nscrapeSource Initialization')
-    print('url={}'.format(url))
-    print('Number of Unique Links Found={}'.format(len(set(soup.findAll('a')))))
+    print('\n   scrapeSource Initialization')
+    #print('url={}'.format(url))
+    print('    Number of Unique Links Found={}'.format(len(set(soup.findAll('a')))))
     numErrors=0
     numParsed=0
     for a in list(set(soup.findAll('a'))):
@@ -283,14 +276,150 @@ def scrapeSource(url, magicFrag='2016', scraperFunction=getNYTText, token='None'
                     numParsed+=1
         except:
             numErrors+=1
-            print('\nBad Parse for \n{}'.format(url))
-    print('\nExecution Complete \nscrapeSourceReport: Errors={}, Parsed={}\n'.format(numErrors,numParsed))
+            #print('\nBad Parse for \n{}'.format(url))
+    print('\n   scrapeSource Execution Complete \n    scrapeSourceReport: Errors={}, Parsed={}\n'.format(numErrors,numParsed))
     return urlBodies
+
+def GetNewsArticles(urls,magicFrag='2016'):
+    '''iterate over inputs urls
+        use regex to seek keywords out of each url to identify
+        correct Textparser and label
+        iteratively pass the url textparser pairs to scrapeSource
+        scrapeSource returns a dictionary of link:(text,title)
+        
+        output: Mixed Articles Dictionary
+            keys: article body (filter out short 200 letter length articles)
+            values: dictionary with key:value
+                'url':'fullurl', 
+                'label':'Tech/NonTech',
+                'keywords':[keywords]
+                'title':str(title)        
+    '''
+    print('\nGetNewsArticles Launched...')
     
-def CorpusCleanup(corpusDict):
-    '''input '''
+    TextParser={re.compile('www.washingtonpost.com'):(getWashPostText,'article'),
+            re.compile('www.nytimes.com'):(getNYTText,None)}
+            
+    LabelAssign={re.compile('sports'):'NonTech',
+            re.compile('technology'):'Tech'}
+    
+    #instantiate FrequencySummarizer Class
+    fs = FrequencySummarizer()
+    
+    def _ParseAssign(url):
+        '''given url, identify correct parser'''
+        for kw in TextParser:
+            search=re.search(kw,url)
+            if search:
+                return TextParser[kw]
+                
+    def _LabelAssign(url):
+        '''given url, identify label to assign'''
+        for label in LabelAssign:
+            search=re.search(label,url)
+            if search:
+                return LabelAssign[label]
+                
+    ## Main Loop of Function ##
+    Articles={}
+    for url in urls:
+        print('\n\n Link: '+url)
+        Parser = _ParseAssign(url)[0]
+        Token =  _ParseAssign(url)[1]
+        Label =  _LabelAssign(url)        
+        print(' Label: '+Label)
+        Links = scrapeSource(url,magicFrag,Parser,token=Token)
+        for link in Links:
+            #comment filter out short articles and store everything in Articles      
+            body=Links[link][0]
+            #print('Body'+body[:200])
+            title=Links[link][1]
+            #print('  Title:'+title)
+            if body and len(body)>200 and body not in Articles:
+                Articles[body]={'label':Label,'url':link,'title':title,'keywords':fs.extractFeatures((body,None),25)}
+    
+    ## Summary Printout
+    print('\n GetNewsArticles Summary')
+    
+    print('\n  Total No. Articles = {}'.format(len(Articles)))
+    
+    valuCount=defaultdict(int)
+    for k in Articles:
+        valuCount[Articles[k]['label']]+=1
+    
+    for label in valuCount:
+        print('    No. unique {} Articles = {}'.format(label,valuCount[label]))
+    
+    print('\n GetNewsArticles Complete')
+    
+    return Articles
+    
+def newCorpusCleanup(corpusDict,n,stopPunctuation=None):
+    '''input Articles Corpus Dict
+        Build lists of like-labled documents as separate corpi
+        find n most frequent words and drop those out of 
+        an output Corpus'''
+        
+        if stopPunctuation==None:
+            stopPunctuation=list(punctuation)+['“','i’m','–','»','“i']
+        
+        #instantiate FrequencySummarizer
+        fs = FrequencySummarizer()
+        
+        def _findLabelSet():
+            '''return dictionary with keys as set of unique labels'''
+            LabeledCorpus={}
+            labels=[]
+            for a in corpusDict:
+                labels.append(corpusDict[a]['label'])
+            for label in set(labels):
+                LabeledCorpus[label]=''
+            return LabeledCorpus
+
+        def _findAlmostStopwords(Dictionary):
+            '''Input Dictionary of label:articles
+                return list of common words amongst the articles'''
+            _resultsDict={}
+            for label in Dictionary:
+                _resultsDict[label]=fs.extractFeatures((Dictionary[label],''),n)
+            values = list(_resultsDict.values())
+            i=0
+            AlmostStopWords=set(values[i])
+            while i < len(values):
+                i+=1
+                AlmostStopWords=AlmostStopWords.intersection(set(values[i]))
+            print('\n  No. of Almost Stop Words = {}'.format(len(AlmostStopWords)))
+            return list[AlmostStopWords]
+            
+        def PreProcess(AlmostStopWords):
+            ''''''
+            PreProcessedCorpus=[]
+            for doc in corpusDict:
+                #regex to remove all numbers
+                doc=re.sub(r'[0-9]+','',doc)
+            for sw in AlmostStopWords:
+                doc=re.sub((r'\b'+sw+r'\b'),'',doc)
+            for p in stopPunctuation:
+                doc=doc.replace(p,'')
+            
+
+        LabeledCorpus=_findLabelSet()
+        for label in LabledCorpus:
+            for a in corpusDict:
+                if corpusDict[a][label]==label:
+                    LabeledCorpus[label]=LabledCorpus[label]+' '+a
+        AlmostStopWords=_findAlmostStopwords(LabeledCorpus)
+        
+        return PreProcess(AlmostStopWords)
+
+def CorpusCleanup(corpusDict,n):
+    '''input Articles Corpus Dict
+        Build lists of like-labled documents as separate corpi
+        find n most frequent words and drop those out of 
+        an output Corpus'''
     TechCorpus=[]
     NonTechCorpus=[]
+    #step through all articles in a "mixed document" corpus
     for k in corpusDict:
         if corpusDict[k]=='Tech':
             TechCorpus.append(k)
@@ -438,6 +567,28 @@ if __name__ == '__main__':
     #get Washpo and NYT articles
     NewsArticles=False
     
+    #
+    RefreshNewsArticles=False
+    
+    if RefreshNewsArticles:
+        URLs=['https://www.washingtonpost.com/sports/',
+            'https://www.washingtonpost.com/business/technology/',
+            'http://www.nytimes.com/pages/sports/index.html',
+            'http://www.nytimes.com/pages/technology/index.html']
+        
+        Articles = GetNewsArticles(URLs)
+        MixedCorpusList = list(Articles.keys())
+        
+        LabelList = []
+        for a in MixedCorpusList:
+            LabelList.append(Articles[a]['label'])
+    else:
+        try: 
+            len(Articles)
+        except:
+            raise NameError('Expected Input: "Articles" Corpus is Not Defined')
+    
+    
     '''Cluster Detection Algorithms
     Number of Clusters is an Output
     '''
@@ -448,21 +599,21 @@ if __name__ == '__main__':
     MnShft=False #does not appear to find any clusters
 
     #Affinity Propagation
-    AffProp=True  
+    AffProp=False
     
     '''Clustering Algo's where the cluster number is an Input'''
     #run KM clustering on Washpo and NYT Tech and Non-Tech Corpus to find clusters
-    KM_1=False
+    KM_1=True
     
     #Generate almoststopwords from common words between Tech and Non-Tech subset corpora
     #pre-process all documents to remove numbers etc
-    KM_2=True
+    KM_2=False
     
     #AgglomerativeClustering
-    AggClst=True
+    AggClst=False
     
     #MaxClusters for looping test
-    MaxClusters=30
+    MaxClusters=5
     
     #Increment Size
     ClusterStep=1
@@ -474,8 +625,7 @@ if __name__ == '__main__':
     #Instantiate Summary Results Class
     ps=PlotSummaryResults()
     
-    #Pre-processed corpus
-    PreProcMCL = CorpusCleanup(MixedCorpusDict)
+    
 
     if doxydonkey:
         blogUrl = 'http://doxydonkey.blogspot.in'
@@ -594,6 +744,8 @@ if __name__ == '__main__':
         print('\nFinal length of MixedCorpusList = {}'.format(len(MixedCorpusList)))    
         #print(MixedCorpusList[2][:100]+'\n  ...***...  \n'+MixedCorpusList[2][-100:-1])
        
+   #Pre-processed corpus
+    PreProcMCL = CorpusCleanup(MixedCorpusDict)
 
     if KM_0 and len(documentCorpus)>1:
         
