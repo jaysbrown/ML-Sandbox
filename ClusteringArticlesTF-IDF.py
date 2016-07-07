@@ -24,6 +24,7 @@ import seaborn as sns
 import re
 import matplotlib.pyplot as plt
 import numpy as np
+from time import time
 
 sns.set_style(style='whitegrid')
 sns.set_context('notebook')
@@ -296,6 +297,7 @@ def GetNewsArticles(urls,magicFrag='2016'):
                 'title':str(title)        
     '''
     print('\nGetNewsArticles Launched...')
+    t0=time()
     
     TextParser={re.compile('www.washingtonpost.com'):(getWashPostText,'article'),
             re.compile('www.nytimes.com'):(getNYTText,None)}
@@ -350,67 +352,84 @@ def GetNewsArticles(urls,magicFrag='2016'):
     for label in valuCount:
         print('    No. unique {} Articles = {}'.format(label,valuCount[label]))
     
-    print('\n GetNewsArticles Complete')
+    print('\n'+' GetNewsArticles Complete'.center(60,'-'))
+    print('\n'+'  took {:.1f}s'.format(time()-t0).center(50,'-')+'\n')
     
     return Articles
     
 def newCorpusCleanup(corpusDict,n,stopPunctuation=None):
-    '''input Articles Corpus Dict
+    '''input Corpus Dict of Articles
         Build lists of like-labled documents as separate corpi
-        find n most frequent words and drop those out of 
+        find n most frequent words that are common to the separate corpi
+        and drop common high freq words and return 
         an output Corpus'''
         
-        if stopPunctuation==None:
-            stopPunctuation=list(punctuation)+['“','i’m','–','»','“i']
+    if stopPunctuation==None:
+        stopPunctuation=list(punctuation)+['“','i’m','–','»','“i']
+    
+    #instantiate FrequencySummarizer
+    fs = FrequencySummarizer()
+    
+    def _findLabelSet():
+        '''return empty dictionary with keys as set of unique labels in the Corpus Dict'''
+        LabeledCorpus={}
+        labels=[]
+        for a in corpusDict:
+            labels.append(corpusDict[a]['label'])
+        for label in set(labels):
+            LabeledCorpus[label]=''
+        return LabeledCorpus
         
-        #instantiate FrequencySummarizer
-        fs = FrequencySummarizer()
-        
-        def _findLabelSet():
-            '''return dictionary with keys as set of unique labels'''
-            LabeledCorpus={}
-            labels=[]
+    def _buildLabelToCorpus(Dictionary):
+        '''build a string of like-labeled articles as a big article (string)
+        for each label in the dictionary'''
+        for label in Dictionary:
             for a in corpusDict:
-                labels.append(corpusDict[a]['label'])
-            for label in set(labels):
-                LabeledCorpus[label]=''
-            return LabeledCorpus
+                if corpusDict[a]['label']==label:
+                    Dictionary[label]=Dictionary[label]+' '+a
+#        for k in LabeledCorpus.keys():
+#            print('key={}'.format(k))
+        return Dictionary
 
-        def _findAlmostStopwords(Dictionary):
-            '''Input Dictionary of label:articles
-                return list of common words amongst the articles'''
-            _resultsDict={}
-            for label in Dictionary:
-                _resultsDict[label]=fs.extractFeatures((Dictionary[label],''),n)
-            values = list(_resultsDict.values())
-            i=0
-            AlmostStopWords=set(values[i])
-            while i < len(values):
-                i+=1
-                AlmostStopWords=AlmostStopWords.intersection(set(values[i]))
-            print('\n  No. of Almost Stop Words = {}'.format(len(AlmostStopWords)))
-            return list[AlmostStopWords]
-            
-        def PreProcess(AlmostStopWords):
-            ''''''
-            PreProcessedCorpus=[]
-            for doc in corpusDict:
-                #regex to remove all numbers
-                doc=re.sub(r'[0-9]+','',doc)
+    def _findAlmostStopwords(Dictionary):
+        '''Input Dictionary of label:articles
+            return list of common words amongst the articles'''
+        _resultsDict={}
+        # get and store a list of "n" most freq words from each labeled corpus
+        for label in Dictionary:
+            _resultsDict[label]=fs.extractFeatures((Dictionary[label],None),n)
+        # iterate through list of lists "values"
+        # create a set by a pair-wise intersection of each set of most common
+        # words from each corpus
+        values = list(_resultsDict.keys())
+        # intialize the AlmostStopWords to use in loop
+        i=0
+        AlmostStopWords=set(_resultsDict[values[i]])
+        while i+1 < len(values):
+            i+=1
+            AlmostStopWords=AlmostStopWords.intersection(set(_resultsDict[values[i]]))
+        print('\n  No. of Almost Stop Words = {}'.format(len(AlmostStopWords)))
+        #print(type(AlmostStopWords))
+        AlmostStopWords=list(AlmostStopWords)
+        return AlmostStopWords
+        
+    def PreProcess(AlmostStopWords):
+        '''Return a list of documents with crud removed'''
+        PreProcessedCorpus=[]
+        for doc in corpusDict:
+            #regex to remove all numbers
+            doc=re.sub(r'[0-9]+','',doc)
             for sw in AlmostStopWords:
                 doc=re.sub((r'\b'+sw+r'\b'),'',doc)
             for p in stopPunctuation:
                 doc=doc.replace(p,'')
-            
+            PreProcessedCorpus.append(doc)
+        return PreProcessedCorpus
 
-        LabeledCorpus=_findLabelSet()
-        for label in LabledCorpus:
-            for a in corpusDict:
-                if corpusDict[a][label]==label:
-                    LabeledCorpus[label]=LabledCorpus[label]+' '+a
-        AlmostStopWords=_findAlmostStopwords(LabeledCorpus)
-        
-        return PreProcess(AlmostStopWords)
+    LabeledCorpus=_findLabelSet()
+    LabeledCorpus=_buildLabelToCorpus(LabeledCorpus)
+    AlmostStopWords=_findAlmostStopwords(LabeledCorpus)    
+    return PreProcess(AlmostStopWords)
 
 def CorpusCleanup(corpusDict,n):
     '''input Articles Corpus Dict
@@ -430,8 +449,8 @@ def CorpusCleanup(corpusDict,n):
     NonTechCorpus = ' '.join(NonTechCorpus)
 
     fs = FrequencySummarizer()
-    NonTechWords=fs.extractFeatures((NonTechCorpus,''),1000)
-    TechWords=fs.extractFeatures((TechCorpus,''),1000)
+    NonTechWords=fs.extractFeatures((NonTechCorpus,''),n)
+    TechWords=fs.extractFeatures((TechCorpus,''),n)
 
     # will combine text+title into a single string as an "article" for this
     #MixedCorpusList = list(''.join(t) for t in MixedCorpus.values() if len(t[0])>0)
@@ -568,7 +587,7 @@ if __name__ == '__main__':
     NewsArticles=False
     
     #
-    RefreshNewsArticles=False
+    RefreshNewsArticles=True
     
     if RefreshNewsArticles:
         URLs=['https://www.washingtonpost.com/sports/',
@@ -588,6 +607,18 @@ if __name__ == '__main__':
         except:
             raise NameError('Expected Input: "Articles" Corpus is Not Defined')
     
+    #t0=time()
+    #Pre-processed corpus
+    #PreProcMCL = CorpusCleanup(MixedCorpusDict,1000)
+    #print('\n'+'CorpusCleaup Complete took {:.1f}s'.format(time()-t0).center(60,'-')+'\n')
+
+    t0=time()
+    #Pre-processed corpus
+    PreProcMCL = newCorpusCleanup(Articles,1000)
+    #AlmostStopWords = newCorpusCleanup(Articles,1000)[0]
+    print('\n'+'newCorpusCleaup Complete took {:.1f}s'.format(time()-t0).center(60,'-')+'\n')
+    
+    
     
     '''Cluster Detection Algorithms
     Number of Clusters is an Output
@@ -603,11 +634,11 @@ if __name__ == '__main__':
     
     '''Clustering Algo's where the cluster number is an Input'''
     #run KM clustering on Washpo and NYT Tech and Non-Tech Corpus to find clusters
-    KM_1=True
+    KM_1=False
     
     #Generate almoststopwords from common words between Tech and Non-Tech subset corpora
     #pre-process all documents to remove numbers etc
-    KM_2=False
+    KM_2=True
     
     #AgglomerativeClustering
     AggClst=False
@@ -744,8 +775,8 @@ if __name__ == '__main__':
         print('\nFinal length of MixedCorpusList = {}'.format(len(MixedCorpusList)))    
         #print(MixedCorpusList[2][:100]+'\n  ...***...  \n'+MixedCorpusList[2][-100:-1])
        
-   #Pre-processed corpus
-    PreProcMCL = CorpusCleanup(MixedCorpusDict)
+#    #Pre-processed corpus
+#    PreProcMCL = CorpusCleanup(MixedCorpusDict,1000)    
 
     if KM_0 and len(documentCorpus)>1:
         
