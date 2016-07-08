@@ -2,21 +2,21 @@
 
 # imports
 import requests
-import urllib.request
+#import urllib.request
 from bs4 import BeautifulSoup
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.corpus import stopwords
 from collections import defaultdict
 from string import punctuation
 from heapq import nlargest
-from math import log
+#from math import log
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from sklearn.cluster import DBSCAN
 from sklearn.cluster import AffinityPropagation
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.cluster import MeanShift
-from sklearn.preprocessing import StandardScaler
+#from sklearn.preprocessing import StandardScaler
 from sklearn import metrics
 #from sklearn.metrics import pairwise_distances
 import pandas as pd
@@ -33,7 +33,7 @@ def getDoxyDonkeyText(testUrl,token='post-body'):
     '''## define function to get the text,title from an individual post on DoxyDonkey Blog'''
     response = requests.get(testUrl)
     soup = BeautifulSoup(response.content,'lxml')
-    page = str(soup)
+    #page = str(soup)
     title = soup.find('title').text
     mydivs = soup.findAll('div', {'class':token})
     text = ''.join(map(lambda p: p.text,mydivs))
@@ -96,7 +96,7 @@ class FrequencySummarizer:
             #tokenize each sentence into words
             for word in sentence:
                 # if word is not a stopword
-                if word not in self._stopwords:
+                if word not in stopwords:
                     # performs a simple counting of words in the document, neat!
                     # if a word(key) is not already in the defaultdict(freq), then
                     # it gets added with a value of type int, for the argument 'int' starting at zero
@@ -128,7 +128,7 @@ class FrequencySummarizer:
         returns the "n" most significant words in the article
         '''
         text = article[0]
-        title = article[1]
+        #title = article[1]
         sentences = sent_tokenize(text)
         # list of sentences, tokenized into words
         word_sent = [word_tokenize(s.lower()) for s in sentences]
@@ -143,7 +143,7 @@ class FrequencySummarizer:
     def extractRawFrequencies(self,article):
         '''this method returns the 'raw' word frequencies in an article'''
         text = article[0]
-        title = article[1]
+        #title = article[1]
         # tokenize article into sentences
         sentences = sent_tokenize(text)
         # tokenize sentences into words
@@ -162,7 +162,7 @@ class FrequencySummarizer:
             article is tuple (text,title)
             n is the number of most significant sentences to return'''
         text = article[0]
-        title = article[1]
+        #title = article[1]
         sentences = sent_tokenize(text)
         assert n <= len(sentences)
         word_sent = [word_tokenize(s.lower()) for s in sentences]
@@ -227,7 +227,7 @@ def getNYTText(url,token):
     response = requests.get(url)
     # instantiate soup object
     soup = BeautifulSoup(response.content,'lxml')
-    page = str(soup)
+    #page = str(soup)
     title = soup.find('title').text
     mydivs = soup.findAll('p' , {'class': 'story-body-text story-content'})
     text = ''.join(map(lambda p: p.text, mydivs))
@@ -357,7 +357,7 @@ def GetNewsArticles(urls,magicFrag='2016'):
     
     return Articles
     
-def newCorpusCleanup(corpusDict,n,stopPunctuation=None):
+def CorpusCleanup(corpusDict,n,stopPunctuation=None):
     '''input Corpus Dict of Articles
         Build lists of like-labled documents as separate corpi
         find n most frequent words that are common to the separate corpi
@@ -431,53 +431,6 @@ def newCorpusCleanup(corpusDict,n,stopPunctuation=None):
     AlmostStopWords=_findAlmostStopwords(LabeledCorpus)    
     return PreProcess(AlmostStopWords)
 
-def CorpusCleanup(corpusDict,n):
-    '''input Articles Corpus Dict
-        Build lists of like-labled documents as separate corpi
-        find n most frequent words and drop those out of 
-        an output Corpus'''
-    TechCorpus=[]
-    NonTechCorpus=[]
-    #step through all articles in a "mixed document" corpus
-    for k in corpusDict:
-        if corpusDict[k]=='Tech':
-            TechCorpus.append(k)
-        elif corpusDict[k]=='NonTech':
-            NonTechCorpus.append(k)
-
-    TechCorpus = ' '.join(TechCorpus)
-    NonTechCorpus = ' '.join(NonTechCorpus)
-
-    fs = FrequencySummarizer()
-    NonTechWords=fs.extractFeatures((NonTechCorpus,''),n)
-    TechWords=fs.extractFeatures((TechCorpus,''),n)
-
-    # will combine text+title into a single string as an "article" for this
-    #MixedCorpusList = list(''.join(t) for t in MixedCorpus.values() if len(t[0])>0)
-
-    AlmostStopWords=list(set(NonTechWords).intersection(set(TechWords)))
-    print('\nNo. of Almost Stop Words = {}'.format(len(AlmostStopWords)))
-
-    #Let's clean up a bunch of the crud in the results above
-    #Remove all numbers first using RegEx
-    #Preprocess the articles to remove AlmostStopWords, words which were common between 
-    #the training data "Tech" and "NonTech" corpora
-    #Using RegEx to remove those words only
-    #Then remove punctuation and special characters
-
-    PreProcMCL=[]
-    PunctStopWords=list(punctuation)+['“','i’m','–','»','“i']
-    for doc in MixedCorpusList:
-        #regex to remove all numbers
-        doc=re.sub(r'[0-9]+','',doc)
-        for sw in AlmostStopWords:
-            doc=re.sub((r'\b'+sw+r'\b'),'',doc)
-        for p in PunctStopWords:
-            doc=doc.replace(p,'')
-        PreProcMCL.append(doc)
-        
-    return PreProcMCL
-    
 def Report_results(modelFit,corpusList,title=None,words=True,sentences=True):
     ''''''
     print('Report_results module {}'.format(modelFit))
@@ -528,7 +481,7 @@ def Report_results(modelFit,corpusList,title=None,words=True,sentences=True):
                 summarize_sents=fs.summarize((corpus,''),1)
                 print('\n Key Sentences from Cluster {}:'.format(c))
                 for s in summarize_sents:
-                    print('\n  '+s[:100]+' ... '+s[-100:]+' <end>')
+                    print('\n  '+s[:200]+' ... '+s[-200:]+' <end>')
             
     df = pd.DataFrame({'Source':LabelList, 'modelFit_label':modelFit.labels_})
     fp=sns.factorplot(hue='Source',x='modelFit_label',data=df,kind='count')
@@ -584,7 +537,7 @@ if __name__ == '__main__':
     KM_0=False
     
     #get Washpo and NYT articles
-    NewsArticles=False
+    #NewsArticles=False
     
     #
     RefreshNewsArticles=True
@@ -606,16 +559,11 @@ if __name__ == '__main__':
             len(Articles)
         except:
             raise NameError('Expected Input: "Articles" Corpus is Not Defined')
-    
-    #t0=time()
-    #Pre-processed corpus
-    #PreProcMCL = CorpusCleanup(MixedCorpusDict,1000)
-    #print('\n'+'CorpusCleaup Complete took {:.1f}s'.format(time()-t0).center(60,'-')+'\n')
+
 
     t0=time()
     #Pre-processed corpus
-    PreProcMCL = newCorpusCleanup(Articles,1000)
-    #AlmostStopWords = newCorpusCleanup(Articles,1000)[0]
+    PreProcMCL = CorpusCleanup(Articles,1000)
     print('\n'+'newCorpusCleaup Complete took {:.1f}s'.format(time()-t0).center(60,'-')+'\n')
     
     
@@ -632,6 +580,9 @@ if __name__ == '__main__':
     #Affinity Propagation
     AffProp=False
     
+    #KMeans without specifying n_clusters
+    KM_3=True
+    
     '''Clustering Algo's where the cluster number is an Input'''
     #run KM clustering on Washpo and NYT Tech and Non-Tech Corpus to find clusters
     KM_1=False
@@ -644,13 +595,13 @@ if __name__ == '__main__':
     AggClst=False
     
     #MaxClusters for looping test
-    MaxClusters=5
+    MaxClusters=10
     
     #Increment Size
     ClusterStep=1
     
     # Setup Color palette for the number of Clustering Algo's to overlay
-    NumModels=3
+    NumModels=2
     sns.set_palette('hls',NumModels,1)
     
     #Instantiate Summary Results Class
@@ -673,110 +624,7 @@ if __name__ == '__main__':
         # number of articles in Corpus
 
         print('\nNo. of documents in Corpus = {}'.format(len(documentCorpus)))
-        
-    if NewsArticles:
-        #Training Data
-        urlWashingtonPostNonTech = 'https://www.washingtonpost.com/sports/'
-        urlWashingtonPostTech = 'https://www.washingtonpost.com/business/technology/'
-        urlNYTNonTech = 'http://www.nytimes.com/pages/sports/index.html'
-        urlNYTTech = 'http://www.nytimes.com/pages/technology/index.html'
-    
-        washPoTechArticles = scrapeSource(urlWashingtonPostTech,'2016',getWashPostText,'article')
-        washPoNonTechArticles = scrapeSource(urlWashingtonPostNonTech,'2016',getWashPostText,'article')
-        NYTTechArticles = scrapeSource(urlNYTTech,'2016',getNYTText,None)
-        NYTNonTechArticles = scrapeSource(urlNYTNonTech,'2016',getNYTText,None)
-    
-    
-        # Success finally, having issues with WashPo rejecting my requests ...
-        # time to collect these article summaries in an easy to classify form
-        # training data, labeling with Tech and NonTech
-        # generating a summary for each article
-        articleSumm = {}
-        for techURLdict in [washPoTechArticles,NYTTechArticles]:
-            for articleURL in techURLdict:
-                if techURLdict[articleURL][0] is not None and len(techURLdict[articleURL][0])>0: 
-                    fs = FrequencySummarizer()
-                    summary = fs.extractFeatures(techURLdict[articleURL],25)
-                    articleSumm[articleURL]= {'feature-vector': summary, 'label': 'Tech'}
-                
-        for NONtechURLdict in [washPoNonTechArticles,NYTNonTechArticles]:
-            for articleURL in NONtechURLdict:
-                if NONtechURLdict[articleURL][0] is not None and len(NONtechURLdict[articleURL][0])>0: 
-                    fs = FrequencySummarizer()
-                    summary = fs.extractFeatures(NONtechURLdict[articleURL],25)
-                    articleSumm[articleURL]= {'feature-vector': summary, 'label': 'NonTech'}
-    
-    
-        print('\nLength of Article Corpus = {}'.format(len(articleSumm)))
-    
-    
-        # Combine the Tech and Non-Tech dictionaries for ease of use
-        TechArts={}
-        NonTechArts={}
-    
-        TechArts.update(washPoTechArticles)
-        TechArts.update(NYTTechArticles)
-    
-        NonTechArts.update(washPoNonTechArticles)
-        NonTechArts.update(NYTNonTechArticles)
-    
-        # create a single List of Articles
-        # combine 1 more time to create a single corpus
-        # reminder this is a dictionary with url's as keys values are a tuple of (text,title)
-        MixedCorpusList = []
-        MixedCorpusDict = {}
-        TechCount=0
-        NonCount=0
-        for k in NonTechArts:
-            if len(NonTechArts[k][0])>0:
-                MixedCorpusList.append(NonTechArts[k][0])
-                NonCount+=1
-                MixedCorpusDict[NonTechArts[k][0]]='NonTech'
-    
-        for k in TechArts:
-            if len(TechArts[k][0])>0:
-                MixedCorpusList.append(TechArts[k][0])
-                TechCount+=1
-                MixedCorpusDict[TechArts[k][0]]='Tech'
-            
-        print('No. Tech Articles Counted with >0 Characters = {}\nNo. NonTech Articles Counted with >0 Characters = {}'.format(TechCount,NonCount))
-        print('\nTotal No. Articles with >0 Characters = {}'.format(len(MixedCorpusList)))
-        print('Total No. of Unique Articles with >0 Characters = {}'.format(len(MixedCorpusDict)))
-        print('\n !That means there are {} non-unique articles that appear in both Tech and NonTech Dictionaries!'.format(len(MixedCorpusList)-len(MixedCorpusDict)))
-        print('Need to drop these from corpus!')
-    
-        valuCount=defaultdict(int)
-        for k in MixedCorpusDict:
-            valuCount[MixedCorpusDict[k]]+=1
-    
-        print('\nNo. unique Tech Articles = {}'.format(valuCount['Tech']))
-        print('No. unique NonTech Articles = {}'.format(valuCount['NonTech']))
-    
-        #Let's use the unique values in MixedCorpusDict to re-initialize the MixedCorpusList and keep a LabelList to accompany:
-        MixedCorpusList = []
-        LabelList = []
-        for k in MixedCorpusDict:
-            MixedCorpusList.append(' '+k)
-            LabelList.append(MixedCorpusDict[k])
-    
-        print('\nRevised Total No. Articles with >0 Characters = {}'.format(len(MixedCorpusList)))
-        print('dropped the duplicate articles that appeared in both NonTech and Tech lists')
-    
-    
-        # double check for short articles (0 length were initially found, but fixed that above in building MixedCorpusList)
-        shorties=[]
-        print('Starting length of MixedCorpusList = {}\n'.format(len(MixedCorpusList)))
-        for art in MixedCorpusList:
-            if len(art)<200: 
-                print('Removed Short Article: \n '+art)
-                shorties.append(art)
-        for shart in shorties:
-            MixedCorpusList.remove(shart)
-        print('\nFinal length of MixedCorpusList = {}'.format(len(MixedCorpusList)))    
-        #print(MixedCorpusList[2][:100]+'\n  ...***...  \n'+MixedCorpusList[2][-100:-1])
-       
-#    #Pre-processed corpus
-#    PreProcMCL = CorpusCleanup(MixedCorpusDict,1000)    
+
 
     if KM_0 and len(documentCorpus)>1:
         
@@ -867,7 +715,28 @@ if __name__ == '__main__':
             Report_results(km,PreProcMCL,'KM_2 with {} Clusters; Inertia = {:.1f}'.format(km.n_clusters,km.inertia_),sentences=False,words=False)
                      
         ps._dataframe('KM_2')
-            
+
+    if KM_3 and len(MixedCorpusList)>1:
+        
+        print('\nKM_3 with Unspecified Clusters'.format(i))
+        KM_clusters=None      
+        
+        # Define the Tfidf vectorizer model
+        vectorizer = TfidfVectorizer(stop_words='english',strip_accents='unicode',max_df=0.9,min_df=0.2)
+        # Vectorize the training data corpus
+        X = vectorizer.fit_transform(PreProcMCL)
+        # Fit the model to the vectorized training data
+        km = KMeans(init = 'k-means++', max_iter=500, n_init=500, verbose=False)
+        
+        print('  Fit model to training data...\n')
+        km.fit(X)
+
+        ps._metrics(km.n_clusters,km,X)
+        
+        Report_results(km,PreProcMCL,'KM_3 with {} Clusters; Inertia = {:.1f}'.format(km.n_clusters,km.inertia_),sentences=True,words=True)
+                 
+        ps._dataframe('KM_3')
+        
     if AggClst and len(MixedCorpusList)>1:
         i=1 
         while i <MaxClusters:
@@ -948,4 +817,4 @@ if __name__ == '__main__':
         Report_results(ms,PreProcMCL,'MeanShift {} Clusters Silh = {:.1f}'.format(len(set(ms.labels_)),silh),sentences=False,words=False)
     
 
-print('\n... Execution Complete ...')
+print('\n'+ 'Execution Complete'.center(70,'='))
